@@ -1,3 +1,9 @@
+<!-- 
+Assignment 2 - Tic Tac Toe
+William Lowrimore
+COSC 4345
+-->
+
 <html>
   <style type="text/css">
     canvas {
@@ -27,116 +33,167 @@
   <script type="text/javascript" src="webgl-utils.js"></script>
   <script type="text/javascript" src="initshaders.js"></script>
   <script type="text/javascript" src="lines.js"></script>
+  <script type="text/javascript" src="circles.js"></script>
   <script type="text/javascript">
-        var canvas;
-        var gl;
-        var colorUniformLocation;
-        var pixels = [];
-        var points = [];
-        var num = 0;
-        var p = 0;
-        var release = true;
+    var canvas;
+    var gl;
+    var colorUniformLocation;
+    var pixels = [];
+    var points = [];
+    var num = 0;
+    var p = 0;
+    var release = true;
 
-        window.onload = init;
+    // Game Board Array
+    var board = [
+      [null, null, null],
+      [null, null, null],
+      [null, null, null],
+    ];
 
-        function init() {
-          canvas = document.getElementById("gl-canvas");
-          gl = WebGLUtils.setupWebGL(canvas);
-          if (!gl) {
-            alert("WebGL isn't available");
+    window.onload = init;
+
+    function init() {
+      canvas = document.getElementById("gl-canvas");
+      gl = WebGLUtils.setupWebGL(canvas);
+      if (!gl) {
+        alert("WebGL isn't available");
+      }
+
+      var program = initShaders(gl, "vertex-shader", "fragment-shader");
+
+      var vPos = gl.getAttribLocation(program, "vPos");
+      colorUniformLocation = gl.getUniformLocation(program, "u_color");
+      var buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      // Gray Background
+      gl.clearColor(0.9, 0.9, 0.9, 1.0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      gl.useProgram(program);
+      gl.enableVertexAttribArray(vPos);
+      gl.vertexAttribPointer(vPos, 2, gl.FLOAT, false, 0, 0);
+
+      var vertices = [];
+      // Vertical board lines
+      vertices = vertices.concat(lineCheck(-300, -900, -300, 900));
+      vertices = vertices.concat(lineCheck(300, -900, 300, 900));
+      // Horizontal board lines
+      vertices = vertices.concat(lineCheck(-900, -300, 900, -300));
+      vertices = vertices.concat(lineCheck(-900, 300, 900, 300));
+
+      for (var i = 0; i < vertices.length; i++) {
+        pixels[p] = [
+          vertices[i][0] / 1000.0,
+          vertices[i][1] / 1000.0,
+          0.0,
+          0.0,
+          0.0,
+        ];
+        points.push(pixels[p][0], pixels[p][1]);
+        p++;
+      }
+
+      render();
+    }
+
+    function render() {
+      //On Click
+      var mouseDown = function (event) {
+        vx = (event.pageX - 250) * 4;
+        vy = (250 - event.pageY) * 4;
+        // Map the click to a square (col,row); 0, 1, 2
+        var col = Math.floor((vx + 900) / 600);
+        var row = Math.floor((vy + 900) / 600);
+        // Map the click to the center of the square
+        var centerX = col * 600 - 600;
+        var centerY = row * 600 - 600;
+
+        // Make sure square is empty; left click condition
+        if (event.button === 0 && release && board[row][col] === null) {
+          var vertices = [];
+          // Fill array
+          board[row][col] = "X";
+
+          // Pos Line, steep slope (1.5)
+          vertices = lineCheck(
+            centerX - 100,
+            centerY - 150,
+            centerX + 100,
+            centerY + 150
+          );
+          // Neg Line, steep slope (-1.5)
+          vertices = vertices.concat(
+            lineCheck(
+              centerX - 100,
+              centerY + 150,
+              centerX + 100,
+              centerY - 150
+            )
+          );
+          for (var i = 0; i < vertices.length; i++) {
+            pixels[p] = [
+              vertices[i][0] / 1000.0,
+              vertices[i][1] / 1000.0,
+              // Blue
+              0.0,
+              0.0,
+              1.0,
+            ];
+            points.push(pixels[p][0], pixels[p][1]);
+            p++;
           }
+          num++;
+          release = false;
 
-          var program = initShaders(gl, "vertex-shader", "fragment-shader");
+          // Make sure square is empty; right click condition
+        } else if (event.button === 2 && release && board[row][col] === null) {
+          var vertices = [];
+          // Fill array
+          board[row][col] = "O";
 
-          var vPos = gl.getAttribLocation(program, "vPos");
-          colorUniformLocation = gl.getUniformLocation(program, "u_color");
-          var buffer = gl.createBuffer();
-          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-
-          gl.viewport(0, 0, canvas.width, canvas.height);
-          gl.clearColor(0.9, 0.9, 0.9, 1.0);
-          gl.clear(gl.COLOR_BUFFER_BIT);
-
-          gl.useProgram(program);
-          gl.enableVertexAttribArray(vPos);
-          gl.vertexAttribPointer(vPos, 2, gl.FLOAT, false, 0, 0);
-
-          render();
-        }
-
-        function render() {
-          var mouseDown = function (event) {
-            if (event.button === 0 && release) {
-              vx = (event.pageX - 250) * 4;
-              vy = (250 - event.pageY) * 4;
-              var vertices = [];
-              vertices = lineCheck(vx - 100, vy - 150, vx + 150, vy + 100);
-              vertices = vertices.concat(
-                lineCheck(vx - 100, vy +100, vx + 100, vy - 150)
-              );
-              console.log("vx, vy");
-              console.log(vx, vy);
-              for (var i = 0; i < vertices.length; i++) {
-                pixels[p] = [
-                  vertices[i][0] / 1000.0,
-                  vertices[i][1] / 1000.0,
-                  0.0,
-                  0.0,
-                  1.0,
-                ];
-                points.push(pixels[p][0], pixels[p][1]);
-                p++;
-              }
-              num++;
-              release = false;
-            } else if (event.button === 2 && release) {
-              vx = (event.pageX - 250) * 4;
-              vy = (250 - event.pageY) * 4;
-              var vertices = lineCheck(vx - 200, vy - 175, vx + 200, vy + 175);
-              vertices = vertices.concat(
-                vertices,
-                lineCheck(vx - 150, vy - 50, vx + 150, vy + 50)
-              );
-              console.log("vx, vy");
-              console.log(vx, vy);
-              for (var i = 0; i < vertices.length; i++) {
-                pixels[p] = [
-                  vertices[i][0] / 1000.0,
-                  vertices[i][1] / 1000.0,
-                  1.0,
-                  0.0,
-                  0.0,
-                ];
-                points.push(pixels[p][0], pixels[p][1]);
-                p++;
-              }
-              num++;
-              release = false;
-            }
-          };
-          canvas.addEventListener("mousedown", mouseDown);
-
-          var mouseUp = function (event) {
-            release = true;
-          };
-          canvas.addEventListener("mouseup", mouseUp);
-
-          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW);
-          gl.clear(gl.COLOR_BUFFER_BIT);
-
-          for (var i = 0; i < p; i++) {
-            gl.uniform4f(
-              colorUniformLocation,
-              pixels[i][2],
-              pixels[i][3],
-              pixels[i][4],
-              1.0
-            );
-            gl.drawArrays(gl.POINTS, i, 1);
+          vertices = drawCircle(150, centerX, centerY);
+          for (var i = 0; i < vertices.length; i++) {
+            pixels[p] = [
+              vertices[i][0] / 1000.0,
+              vertices[i][1] / 1000.0,
+              // Red
+              1.0,
+              0.0,
+              0.0,
+            ];
+            points.push(pixels[p][0], pixels[p][1]);
+            p++;
           }
-
-          requestAnimFrame(render);
+          num++;
+          release = false;
         }
+      };
+      canvas.addEventListener("mousedown", mouseDown);
+
+      var mouseUp = function (event) {
+        release = true;
+      };
+      canvas.addEventListener("mouseup", mouseUp);
+
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      for (var i = 0; i < p; i++) {
+        gl.uniform4f(
+          colorUniformLocation,
+          pixels[i][2],
+          pixels[i][3],
+          pixels[i][4],
+          1.0
+        );
+        gl.drawArrays(gl.POINTS, i, 1);
+      }
+
+      requestAnimFrame(render);
+    }
   </script>
 
   <body>
