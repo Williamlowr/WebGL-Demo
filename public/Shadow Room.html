@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shadow Room - WebGL Project</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <div class="container">
+      <h1>Shadow Room</h1>
+      <p class="author">WebGL 3D Lighting and Shadow Demo</p>
+
+      <div class="main-content">
+        <div class="canvas-wrapper">
+          <canvas id="gl-canvas" width="700" height="700"></canvas>
+        </div>
+
+        <div class="controls">
+          <h3>Controls</h3>
+          <div class="control-group">
+            <span class="key">SPACE</span
+            ><span class="description">Toggle light</span>
+          </div>
+          <div class="control-group">
+            <span class="key">L</span
+            ><span class="description">Toggle light ray</span>
+          </div>
+          <div class="control-group">
+            <span class="key">R</span
+            ><span class="description">Toggle cube rotation</span>
+          </div>
+          <div class="control-group">
+            <span class="key">W</span><span class="description">Light up</span>
+          </div>
+          <div class="control-group">
+            <span class="key">A</span
+            ><span class="description">Light left</span>
+          </div>
+          <div class="control-group">
+            <span class="key">S</span
+            ><span class="description">Light down</span>
+          </div>
+          <div class="control-group">
+            <span class="key">D</span
+            ><span class="description">Light right</span>
+          </div>
+
+          <div class="info">
+            Simple Interactable 3D scene demonstrating basic lighting and
+            shadowing; use the controls to manipulate the light source or cube.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ------------------- SHADERS ------------------- -->
+    <script id="vertex-shader" type="x-shader/x-vertex">
+      attribute vec4 aPos;
+      attribute vec4 aCol;
+      varying vec4 v_color;
+
+      void main() {
+        gl_PointSize = 3.0;
+        gl_Position = aPos;
+        v_color = aCol;
+      }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+      precision mediump float;
+      varying vec4 v_color;
+
+      void main() {
+        gl_FragColor = v_color;
+      }
+    </script>
+
+    <!-- ------------------- MODULES ------------------- -->
+    <script src="js/webgl-utils.js"></script>
+    <script src="js/initShaders.js"></script>
+    <script src="js/matrices.js"></script>
+    <script src="js/lighting.js"></script>
+    <script src="js/lines.js"></script>
+    <script src="js/shapes.js"></script>
+
+    <!-- ------------------- MAIN RENDERING LOGIC ------------------- -->
+    <script>
+      let canvas, gl;
+      let degrees = 0;
+      let showLight = true;
+      let lightOn = true;
+      let cubeRotating = true;
+
+      let lightMovementX = 0;
+      let lightMovementY = 0;
+
+      const cubePoints = getCube();
+      const roomPoints = getRoom();
+
+      const faces = [
+        [0, 1, 3, 2],
+        [5, 4, 6, 7],
+        [4, 0, 2, 6],
+        [1, 5, 7, 3],
+        [2, 3, 7, 6],
+        [1, 0, 4, 5],
+      ];
+
+      // ------------------ INPUT ------------------
+      window.addEventListener("keydown", (e) => {
+        switch (e.keyCode) {
+          case 32:
+            lightOn = !lightOn;
+            break; // SPACE
+          case 76:
+            showLight = !showLight;
+            break; // L
+          case 82:
+            cubeRotating = !cubeRotating;
+            break; // R
+          case 87:
+            lightMovementY += 100;
+            break; // W
+          case 65:
+            lightMovementX -= 100;
+            break; // A
+          case 83:
+            lightMovementY -= 100;
+            break; // S
+          case 68:
+            lightMovementX += 100;
+            break; // D
+        }
+      });
+
+      // ------------------ RENDER LOOP ------------------
+      function render() {
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clearColor(0.1, 0.1, 0.1, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        if (cubeRotating) {
+          degrees += 0.2;
+          if (degrees > 360) degrees = 0;
+        }
+
+        const MrotZ = RotationZMatrix3D(degrees);
+        const MrotY = RotationYMatrix3D(degrees * 2);
+        const MrotX = RotationXMatrix3D(degrees * 3);
+        const Mcube = MatrixMultiply3D(MatrixMultiply3D(MrotX, MrotY), MrotZ);
+
+        const Mroom = MatrixMultiply3D(
+          RotationXMatrix3D(0),
+          RotationYMatrix3D(45)
+        );
+
+        const cameraPos = [0, 75, 300, 1];
+        const lookAt = [0, 0, 0, 1];
+        const Mwcvc = getWorldToViewingMatrix3D(cameraPos, lookAt);
+
+        const p1 = VectorMultiply3D(Mwcvc, cameraPos);
+        const p2 = VectorMultiply3D(Mwcvc, lookAt);
+        const VP = [p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2], p2[3] - p1[3]];
+
+        const zvp = -400;
+        const Mparallel = getParallelProjectionMatrix(VP, zvp);
+
+        const Mproject = MatrixMultiply3D(Mparallel, Mwcvc);
+        const MfinalCube = MatrixMultiply3D(Mproject, Mcube);
+        const MfinalRoom = MatrixMultiply3D(Mproject, Mroom);
+
+        const projCube = cubePoints.map((p) => VectorMultiply3D(MfinalCube, p));
+        const worldCube = cubePoints.map((p) => VectorMultiply3D(Mcube, p));
+
+        const projRoom = roomPoints.map((p) => VectorMultiply3D(MfinalRoom, p));
+        const worldRoom = roomPoints.map((p) => VectorMultiply3D(Mroom, p));
+
+        const lightPos = [[lightMovementX, lightMovementY, 700, 1]];
+        const lightDir = [[0, 0, -1, 1]];
+        const lightInt = lightOn ? [1] : [0];
+        const ambient = 0.2;
+
+        drawShape(
+          roomPoints,
+          faces,
+          projRoom,
+          worldRoom,
+          cameraPos,
+          lightPos,
+          lightDir,
+          lightInt,
+          ambient,
+          0,
+          Mproject,
+          true
+        );
+        drawShape(
+          cubePoints,
+          faces,
+          projCube,
+          worldCube,
+          cameraPos,
+          lightPos,
+          lightDir,
+          lightInt,
+          ambient,
+          0,
+          Mproject,
+          false
+        );
+
+        requestAnimFrame(render);
+      }
+
+      // ------------------ DRAW SHAPE ------------------
+      function drawShape(
+        points,
+        faces,
+        projPts,
+        worldPts,
+        cam,
+        lightPos,
+        lightDir,
+        lightInt,
+        amb,
+        emit,
+        Mproj,
+        isRoom
+      ) {
+        const depth = faces.map((f) => {
+          const p1 = projPts[f[0]],
+            p2 = projPts[f[1]],
+            p3 = projPts[f[2]],
+            p4 = projPts[f[3]];
+          return Math.min(
+            p1[2] / p1[3],
+            p2[2] / p2[3],
+            p3[2] / p3[3],
+            p4[2] / p4[3]
+          );
+        });
+
+        const order = faces
+          .map((_, i) => i)
+          .sort((a, b) => depth[a] - depth[b]);
+
+        order.forEach((idx) => {
+          const f = faces[idx];
+          const p1 = projPts[f[0]],
+            p2 = projPts[f[1]],
+            p3 = projPts[f[2]],
+            p4 = projPts[f[3]];
+
+          if (!visibleFace(p1, p2, p3)) return;
+
+          const verts = [
+            (0.001 * p1[0]) / p1[3],
+            (0.001 * p1[1]) / p1[3],
+            (0.001 * p2[0]) / p2[3],
+            (0.001 * p2[1]) / p2[3],
+            (0.001 * p3[0]) / p3[3],
+            (0.001 * p3[1]) / p3[3],
+            (0.001 * p4[0]) / p4[3],
+            (0.001 * p4[1]) / p4[3],
+          ];
+
+          const wp1 = worldPts[f[0]],
+            wp2 = worldPts[f[1]],
+            wp3 = worldPts[f[2]],
+            wp4 = worldPts[f[3]];
+
+          const N = crossProduct(
+            [wp3[0] - wp2[0], wp3[1] - wp2[1], wp3[2] - wp2[2]],
+            [wp1[0] - wp2[0], wp1[1] - wp2[1], wp1[2] - wp2[2]]
+          );
+          const magN = magnitude(N);
+          if (magN !== 0) {
+            N[0] /= magN;
+            N[1] /= magN;
+            N[2] /= magN;
+          }
+
+          const hue = isRoom ? 240 : 5;
+          const colors = [wp1, wp2, wp3, wp4].flatMap((wp) => {
+            const V = [cam[0] - wp[0], cam[1] - wp[1], cam[2] - wp[2]];
+            const val = Math.min(
+              1,
+              intensity(wp, N, V, lightPos, lightDir, lightInt, amb, emit)
+            );
+            const [r, g, b] = hsv2rgb(hue, 1, val);
+            return [r, g, b, 1];
+          });
+
+          const program = initShaders(gl, "vertex-shader", "fragment-shader");
+          const aPos = gl.getAttribLocation(program, "aPos");
+          const aCol = gl.getAttribLocation(program, "aCol");
+
+          const posBuf = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+          gl.bufferData(
+            gl.ARRAY_BUFFER,
+            new Float32Array(verts),
+            gl.STATIC_DRAW
+          );
+
+          const colBuf = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
+          gl.bufferData(
+            gl.ARRAY_BUFFER,
+            new Float32Array(colors),
+            gl.STATIC_DRAW
+          );
+
+          gl.useProgram(program);
+          gl.enableVertexAttribArray(aPos);
+          gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+          gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+          gl.enableVertexAttribArray(aCol);
+          gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
+          gl.vertexAttribPointer(aCol, 4, gl.FLOAT, false, 0, 0);
+
+          gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+        });
+
+        if (showLight) {
+          lightPos.forEach((lp) => {
+            const pLight = VectorMultiply3D(Mproj, lp);
+            const pDir = VectorMultiply3D(Mproj, lightDir[0]);
+
+            const verts = [
+              (0.001 * pLight[0]) / pLight[3],
+              (0.001 * pLight[1]) / pLight[3],
+              (0.001 * pDir[0]) / pDir[3],
+              (0.001 * pDir[1]) / pDir[3],
+            ];
+
+            const program = initShaders(gl, "vertex-shader", "fragment-shader");
+            const aPos = gl.getAttribLocation(program, "aPos");
+            const aCol = gl.getAttribLocation(program, "aCol");
+
+            const posBuf = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+            gl.bufferData(
+              gl.ARRAY_BUFFER,
+              new Float32Array(verts),
+              gl.STATIC_DRAW
+            );
+
+            const colors = [1, 1, 1, 1, 1, 1, 1, 1];
+            const colBuf = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
+            gl.bufferData(
+              gl.ARRAY_BUFFER,
+              new Float32Array(colors),
+              gl.STATIC_DRAW
+            );
+
+            gl.useProgram(program);
+            gl.enableVertexAttribArray(aPos);
+            gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+            gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+            gl.enableVertexAttribArray(aCol);
+            gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
+            gl.vertexAttribPointer(aCol, 4, gl.FLOAT, false, 0, 0);
+
+            gl.drawArrays(gl.LINES, 0, 2);
+          });
+        }
+      }
+
+      // ------------------ INIT ------------------
+      window.onload = () => {
+        canvas = document.getElementById("gl-canvas");
+        gl = WebGLUtils.setupWebGL(canvas);
+        if (!gl) {
+          alert("WebGL not supported");
+          return;
+        }
+        render();
+      };
+    </script>
+  </body>
+</html>

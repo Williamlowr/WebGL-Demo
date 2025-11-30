@@ -1,0 +1,109 @@
+*,
+*::before,
+*::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0f1b33 0%, #09224d 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 40px;
+      overflow: hidden;
+    }
+    
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 30px;
+      max-width: 1200px;
+      width: 100%;
+    }
+    
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 10px;
+      font-size: 28px;
+      text-align: center;
+    }
+    
+    .author {
+      text-align: center;
+      color: #7f8c8d;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    
+    .main-content {
+      display: flex;
+      gap: 30px;
+      align-items: flex-start;
+    }
+    
+    .canvas-wrapper {
+      flex: 1;
+    }
+    
+    canvas {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      display: block;
+      background: #1a1a1a;
+    }
+    
+    .controls {
+      width: 280px;
+      flex-shrink: 0;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    
+    .controls h3 {
+      color: #2c3e50;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+    
+    .control-group {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .key {
+      display: inline-block;
+      background: #34495e;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-weight: bold;
+      min-width: 30px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .description {
+      color: #555;
+      flex: 1;
+    }
+    
+    .info {
+      margin-top: 15px;
+      padding: 15px;
+      background: #e8f4f8;
+      border-left: 4px solid #3498db;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #2c3e50;
+    }
